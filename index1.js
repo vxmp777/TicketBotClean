@@ -152,7 +152,6 @@ client.on('interactionCreate', async interaction => {
     `Welcome ${interaction.user}\n\n` +
     `**Reason:** ${nomProduit}\n\n` +
     `Please explain your request here. A staff member will assist you shortly.`
-)
         )
         .setColor('#2b2d31');
 
