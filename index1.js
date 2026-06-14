@@ -9,8 +9,10 @@ const {
     PermissionsBitField
 } = require('discord.js');
 
-const TOKEN = 'TON_TOKEN_BOT';
 const STAFF_ROLE_ID = '1482548940384501900';
+const OWNER_ROLE_ID = '1514801783585767534';
+
+const claimedTickets = new Set();
 
 const produits = [
     ['nitro', 'Nitro'],
@@ -44,12 +46,11 @@ client.once('clientReady', () => {
 });
 
 client.on('messageCreate', async message => {
-    console.log('Message received:', message.content);
     if (message.author.bot) return;
 
-    if (message.content === '!setup') {
+    if (message.content.trim() === '!setup') {
         const embed = new EmbedBuilder()
-            .setTitle('🎫 Open a ticket')
+            .setTitle('🎫 Open a Ticket')
             .setDescription('Choose a reason below to open a ticket.')
             .setColor('#2b2d31')
             .setFooter({ text: 'Ticket System' });
@@ -81,11 +82,37 @@ client.on('messageCreate', async message => {
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
+    if (interaction.customId === 'claim_ticket') {
+        if (!interaction.channel.name.endsWith('-ticket')) {
+            return interaction.reply({
+                content: '❌ This button can only be used inside a ticket.',
+                ephemeral: true
+            });
+        }
+
+        if (claimedTickets.has(interaction.channel.id)) {
+            return interaction.reply({
+                content: '❌ This ticket has already been claimed.',
+                ephemeral: true
+            });
+        }
+
+        claimedTickets.add(interaction.channel.id);
+
+        return interaction.reply({
+            content: `✅ Ticket claimed by ${interaction.user}`
+        });
+    }
+
     if (interaction.customId === 'close_ticket') {
+        claimedTickets.delete(interaction.channel.id);
+
         await interaction.reply('🔒 Ticket will be closed in 5 seconds...');
+
         setTimeout(() => {
             interaction.channel.delete().catch(() => {});
         }, 5000);
+
         return;
     }
 
@@ -137,6 +164,15 @@ client.on('interactionCreate', async interaction => {
                 ]
             },
             {
+                id: OWNER_ROLE_ID,
+                allow: [
+                    PermissionsBitField.Flags.ViewChannel,
+                    PermissionsBitField.Flags.SendMessages,
+                    PermissionsBitField.Flags.ReadMessageHistory,
+                    PermissionsBitField.Flags.ManageMessages
+                ]
+            },
+            {
                 id: client.user.id,
                 allow: [
                     PermissionsBitField.Flags.ViewChannel,
@@ -148,14 +184,20 @@ client.on('interactionCreate', async interaction => {
     });
 
     const embed = new EmbedBuilder()
+        .setTitle(`🎫 Ticket - ${nomProduit}`)
         .setDescription(
-    `Welcome ${interaction.user}\n\n` +
-    `**Reason:** ${nomProduit}\n\n` +
-    `Please explain your request here. A staff member will assist you shortly.`
+            `Welcome ${interaction.user}\n\n` +
+            `**Reason:** ${nomProduit}\n\n` +
+            `Please explain your request here. A staff member will assist you shortly.`
         )
         .setColor('#2b2d31');
 
-    const closeRow = new ActionRowBuilder().addComponents(
+    const buttonRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('claim_ticket')
+            .setLabel('Claim Ticket')
+            .setStyle(ButtonStyle.Success),
+
         new ButtonBuilder()
             .setCustomId('close_ticket')
             .setLabel('Close Ticket')
@@ -163,9 +205,9 @@ client.on('interactionCreate', async interaction => {
     );
 
     await ticketChannel.send({
-        content: `${interaction.user} <@&${STAFF_ROLE_ID}>`,
+        content: `${interaction.user} <@&${OWNER_ROLE_ID}> <@&${STAFF_ROLE_ID}>`,
         embeds: [embed],
-        components: [closeRow]
+        components: [buttonRow]
     });
 
     await interaction.reply({
@@ -173,11 +215,5 @@ client.on('interactionCreate', async interaction => {
         ephemeral: true
     });
 });
-client.on('messageCreate', message => {
-    console.log('MESSAGE:', message.content);
 
-    if (message.content === '!ping') {
-        message.reply('pong');
-    }
-});
 client.login(process.env.TOKEN);
