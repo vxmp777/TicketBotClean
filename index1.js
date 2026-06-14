@@ -83,6 +83,13 @@ client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
     if (interaction.customId === 'claim_ticket') {
+        if (!interaction.member.roles.cache.has(OWNER_ROLE_ID)) {
+            return interaction.reply({
+                content: '❌ Only owners can claim tickets.',
+                ephemeral: true
+            });
+        }
+
         if (!interaction.channel.name.endsWith('-ticket')) {
             return interaction.reply({
                 content: '❌ This button can only be used inside a ticket.',
@@ -205,7 +212,7 @@ client.on('interactionCreate', async interaction => {
     );
 
     await ticketChannel.send({
-        content: `${interaction.user} <@&${OWNER_ROLE_ID}> <@&${STAFF_ROLE_ID}>`,
+        content: `${interaction.user} <@&${OWNER_ROLE_ID}>`,
         embeds: [embed],
         components: [buttonRow]
     });
