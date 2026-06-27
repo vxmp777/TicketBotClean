@@ -6,11 +6,17 @@ const {
     ButtonBuilder,
     ButtonStyle,
     ChannelType,
-    PermissionsBitField
+    PermissionsBitField,
+    SlashCommandBuilder,
+    REST,
+    Routes
 } = require('discord.js');
 
 const STAFF_ROLE_ID = '1482548940384501900';
 const OWNER_ROLE_ID = '1514801783585767534';
+
+const CLIENT_ID = '1515359848680652891';
+const GUILD_ID = '1512371111059390596';
 
 const claimedTickets = new Set();
 
@@ -33,6 +39,12 @@ const produits = [
     ['support', 'Support']
 ];
 
+const commands = [
+    new SlashCommandBuilder()
+        .setName('close')
+        .setDescription('Close the current ticket')
+].map(command => command.toJSON());
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -41,8 +53,22 @@ const client = new Client({
     ]
 });
 
-client.once('clientReady', () => {
+const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+
+client.once('clientReady', async () => {
     console.log(`${client.user.tag} connected`);
+
+    try {
+        await rest.put(
+            Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+            { body: commands }
+        );
+
+        console.log('✅ Slash command /close registered.');
+    } catch (error) {
+        console.error('❌ Failed to register slash command:');
+        console.error(error);
+    }
 });
 
 client.on('messageCreate', async message => {
@@ -80,6 +106,27 @@ client.on('messageCreate', async message => {
 });
 
 client.on('interactionCreate', async interaction => {
+    if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === 'close') {
+            if (!interaction.channel.name.endsWith('-ticket')) {
+                return interaction.reply({
+                    content: '❌ This command can only be used inside a ticket.',
+                    ephemeral: true
+                });
+            }
+
+            claimedTickets.delete(interaction.channel.id);
+
+            await interaction.reply('🔒 Ticket will be closed in 5 seconds...');
+
+            setTimeout(() => {
+                interaction.channel.delete().catch(() => {});
+            }, 5000);
+
+            return;
+        }
+    }
+
     if (!interaction.isButton()) return;
 
     if (interaction.customId === 'claim_ticket') {
